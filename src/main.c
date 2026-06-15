@@ -126,6 +126,79 @@ bool find_matches() {
 	return found;
 }
 
+// Check if any valid swap exists that would create a match
+bool has_possible_moves() {
+	// Try every horizontal adjacent swap
+	for (int y = 0; y < BOARD_SIZE; y++) {
+		for (int x = 0; x < BOARD_SIZE - 1; x++) {
+			// Swap (x,y) and (x+1,y)
+			char temp = board[y][x];
+			board[y][x] = board[y][x + 1];
+			board[y][x + 1] = temp;
+
+			// Check if this swap creates any match
+			bool creates_match = false;
+			for (int cy = 0; cy < BOARD_SIZE && !creates_match; cy++) {
+				for (int cx = 0; cx < BOARD_SIZE - 2 && !creates_match; cx++) {
+					if (board[cy][cx] == board[cy][cx + 1] && board[cy][cx] == board[cy][cx + 2])
+						creates_match = true;
+				}
+			}
+			for (int cx = 0; cx < BOARD_SIZE && !creates_match; cx++) {
+				for (int cy = 0; cy < BOARD_SIZE - 2 && !creates_match; cy++) {
+					if (board[cy][cx] == board[cy + 1][cx] && board[cy][cx] == board[cy + 2][cx])
+						creates_match = true;
+				}
+			}
+
+			// Swap back
+			board[y][x + 1] = board[y][x];
+			board[y][x] = temp;
+
+			if (creates_match) return true;
+		}
+	}
+
+	// Try every vertical adjacent swap
+	for (int y = 0; y < BOARD_SIZE - 1; y++) {
+		for (int x = 0; x < BOARD_SIZE; x++) {
+			char temp = board[y][x];
+			board[y][x] = board[y + 1][x];
+			board[y + 1][x] = temp;
+
+			bool creates_match = false;
+			for (int cy = 0; cy < BOARD_SIZE && !creates_match; cy++) {
+				for (int cx = 0; cx < BOARD_SIZE - 2 && !creates_match; cx++) {
+					if (board[cy][cx] == board[cy][cx + 1] && board[cy][cx] == board[cy][cx + 2])
+						creates_match = true;
+				}
+			}
+			for (int cx = 0; cx < BOARD_SIZE && !creates_match; cx++) {
+				for (int cy = 0; cy < BOARD_SIZE - 2 && !creates_match; cy++) {
+					if (board[cy][cx] == board[cy + 1][cx] && board[cy][cx] == board[cy + 2][cx])
+						creates_match = true;
+				}
+			}
+
+			board[y + 1][x] = board[y][x];
+			board[y][x] = temp;
+
+			if (creates_match) return true;
+		}
+	}
+
+	return false;
+}
+
+// Shuffle the entire board randomly (used when no moves are possible)
+void shuffle_board() {
+	for (int y = 0; y < BOARD_SIZE; y++) {
+		for (int x = 0; x < BOARD_SIZE; x++) {
+			board[y][x] = random_tile();
+		}
+	}
+}
+
 void resolve_matches() {
 	for (int x = 0; x < BOARD_SIZE; x++) {
 		int write_y = BOARD_SIZE - 1;
@@ -151,12 +224,6 @@ void resolve_matches() {
 }
 
 void init_board() {
-	for (int y = 0; y < BOARD_SIZE; y++) {
-		for (int x = 0; x < BOARD_SIZE; x++) {
-			board[y][x] = random_tile();
-		}
-	}
-
 	int grid_width = BOARD_SIZE * TILE_SIZE;
 	int grid_height = BOARD_SIZE * TILE_SIZE;
 
@@ -165,12 +232,63 @@ void init_board() {
 		(GetScreenHeight() - grid_height) / 2
 	};
 
-	if (find_matches()) {
-		resolve_matches();
+	// Keep generating boards until we get one with no
+	// pre-existing matches AND at least one valid move
+	int attempts = 0;
+	do {
+		shuffle_board();
+		attempts++;
+
+		// Clear any pre-existing matches by regenerating those tiles
+		bool had_matches = true;
+		while (had_matches) {
+			had_matches = false;
+			for (int y = 0; y < BOARD_SIZE; y++) {
+				for (int x = 0; x < BOARD_SIZE; x++) {
+					matched[y][x] = false;
+				}
+			}
+			// Check horizontal
+			for (int y = 0; y < BOARD_SIZE; y++) {
+				for (int x = 0; x < BOARD_SIZE - 2; x++) {
+					if (board[y][x] == board[y][x+1] && board[y][x] == board[y][x+2]) {
+						matched[y][x] = matched[y][x+1] = matched[y][x+2] = true;
+						had_matches = true;
+					}
+				}
+			}
+			// Check vertical
+			for (int x = 0; x < BOARD_SIZE; x++) {
+				for (int y = 0; y < BOARD_SIZE - 2; y++) {
+					if (board[y][x] == board[y+1][x] && board[y][x] == board[y+2][x]) {
+						matched[y][x] = matched[y+1][x] = matched[y+2][x] = true;
+						had_matches = true;
+					}
+				}
+			}
+			// Replace matched tiles with new random ones
+			if (had_matches) {
+				for (int y = 0; y < BOARD_SIZE; y++) {
+					for (int x = 0; x < BOARD_SIZE; x++) {
+						if (matched[y][x]) {
+							board[y][x] = random_tile();
+							matched[y][x] = false;
+						}
+					}
+				}
+			}
+		}
+	} while (!has_possible_moves() && attempts < 1000);
+
+	// Reset matched and fall_offset arrays for clean state
+	for (int y = 0; y < BOARD_SIZE; y++) {
+		for (int x = 0; x < BOARD_SIZE; x++) {
+			matched[y][x] = false;
+			fall_offset[y][x] = 0;
+		}
 	}
-	else {
-		tile_state = STATE_IDLE;
-	}
+
+	tile_state = STATE_IDLE;
 }
 
 int main(void) {
@@ -247,6 +365,10 @@ int main(void) {
 			if (match_delay_timer <= 0.0f) {
 				if (find_matches()) {
 					resolve_matches();
+				}
+				else if (!has_possible_moves()) {
+					// No moves left — reshuffle the board
+					init_board();
 				}
 				else {
 					tile_state = STATE_IDLE;
