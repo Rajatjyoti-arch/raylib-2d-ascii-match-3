@@ -7,19 +7,17 @@
 #define BOARD_SIZE 8
 #define TILE_SIZE 42
 #define TILE_TYPES 5
-#define SCORE_FONT_SIZE 32
-#define MAX_SCORE_POPUPS 32
+#define MAX_SCORE_POPUPS 100
 
 const char tile_chars[TILE_TYPES] = { '#', '@', '$', '%', '&' };
 
 char board[BOARD_SIZE][BOARD_SIZE];
-bool matched[BOARD_SIZE][BOARD_SIZE] = { 0 };
-float fall_offset[BOARD_SIZE][BOARD_SIZE] = { 0 };
+bool matched[BOARD_SIZE][BOARD_SIZE] = {0};
+float fall_offset[BOARD_SIZE][BOARD_SIZE] = {0};
 
 int score = 0;
 Vector2 grid_origin;
 Texture2D background;
-Font score_font;
 Vector2 selected_tile = { -1, -1 };
 float fall_speed = 8.0f;
 float match_delay_timer = 0.0f;
@@ -41,44 +39,43 @@ typedef enum {
 TileState tile_state;
 
 typedef struct {
-	Vector2 position;
-	int amount;
-	float lifetime;
-	float alpha;
-	bool active;
+    Vector2 position;
+    int amount;
+    float lifetime;
+    bool active;
+    float alpha;
 } ScorePopup;
 
-ScorePopup score_popups[MAX_SCORE_POPUPS] = { 0 };
-
+ScorePopup score_popups[MAX_SCORE_POPUPS] = {0};
 char random_tile() {
 	return tile_chars[rand() % TILE_TYPES];
 }
 
 void swap_tiles(int x1, int y1, int x2, int y2) {
-	char temp = board[y1][x1];
-	board[y1][x1] = board[y2][x2];
-	board[y2][x2] = temp;
+    char temp = board[y1][x1];
+    board[y1][x1] = board[y2][x2];
+    board[y2][x2] = temp;
 }
 
 bool are_tiles_adjacent(Vector2 a, Vector2 b) {
-	return (abs((int)a.x - (int)b.x) + abs((int)a.y - (int)b.y)) == 1;
+    return (abs((int)a.x - (int)b.x) + abs((int)a.y - (int)b.y)) == 1;
 }
 
 void add_score_popup(int x, int y, int amount, Vector2 grid_origin) {
 	for (int i = 0; i < MAX_SCORE_POPUPS; i++) {
 		if (!score_popups[i].active) {
-			score_popups[i].position = (Vector2){
+			score_popups[i].position = (Vector2) {
 				grid_origin.x + x * TILE_SIZE + TILE_SIZE / 2,
 				grid_origin.y + y * TILE_SIZE + TILE_SIZE / 2
 			};
 			score_popups[i].amount = amount;
 			score_popups[i].lifetime = 1.0f;
-			score_popups[i].alpha = 1.0f;
 			score_popups[i].active = true;
 			break;
 		}
 	}
 }
+
 
 bool find_matches() {
 	bool found = false;
@@ -94,16 +91,15 @@ bool find_matches() {
 			if (t == board[y][x + 1] &&
 				t == board[y][x + 2]) {
 				matched[y][x] = matched[y][x + 1] = matched[y][x + 2] = true;
-				// update score
 				score += 10;
 				found = true;
-				PlaySound(match_sound);
+                PlaySound(match_sound);
 
-				score_animating = true;
-				score_scale = 2.0f;
-				score_scale_velocity = -2.5f;
+                score_animating = true;
+                score_scale = 2.0f;
+                score_scale_velocity = -2.5f;
 
-				add_score_popup(x, y, 10, grid_origin);
+               add_score_popup(x, y,10, grid_origin);
 			}
 		}
 	}
@@ -116,13 +112,13 @@ bool find_matches() {
 				matched[y][x] = matched[y + 1][x] = matched[y + 2][x] = true;
 				score += 10;
 				found = true;
-				PlaySound(match_sound);
+                PlaySound(match_sound);
 
-				score_animating = true;
-				score_scale = 2.0f;
-				score_scale_velocity = -2.5f;
+                score_animating = true;
+                score_scale = 2.0f;
+                score_scale_velocity = -2.5f;
 
-				add_score_popup(x, y, 10, grid_origin);
+                add_score_popup(x, y, 10, grid_origin);
 			}
 		}
 	}
@@ -144,7 +140,6 @@ void resolve_matches() {
 			}
 		}
 
-		// fill empty spots with new random tiles
 		while (write_y >= 0) {
 			board[write_y][x] = random_tile();
 			fall_offset[write_y][x] = (write_y + 1) * TILE_SIZE;
@@ -179,36 +174,26 @@ void init_board() {
 }
 
 int main(void) {
-	const int screen_width = 800;
-	const int screen_height = 450;
+    const int screen_width = 800;
+    const int screen_height = 450;
 
-	InitWindow(screen_width, screen_height, "Raylib 2D ASCII MATCH");
-	SetTargetFPS(60);
-	srand(time(NULL));
+	InitWindow(screen_width, screen_height, "GAME");
+    SetTargetFPS(60);
+    srand(time(NULL));
 
-	InitAudioDevice();
+    InitAudioDevice();
 
-	background = LoadTexture("assets/background.jpg");
-	score_font = LoadFontEx("assets/04b03.ttf", SCORE_FONT_SIZE, NULL, 0);
-	background_music = LoadMusicStream("assets/prismx27s-edge-246705.mp3");
+    background = LoadTexture("assets/back.png");
+	background_music = LoadMusicStream("assets/music.mp3");
 	match_sound = LoadSound("assets/match.mp3");
-
 	PlayMusicStream(background_music);
+    init_board();
+    Vector2 mouse = {0, 0};
 
-	// turn down music stream a tad
-	SetMusicVolume(background_music, 0.60f);
+    while(!WindowShouldClose()) {
 
-	// lower sound effect volume a tad
-	SetSoundVolume(match_sound, 0.40f);
+        UpdateMusicStream(background_music);
 
-	init_board();
-	Vector2 mouse = { 0, 0 };
-
-	while (!WindowShouldClose()) {
-
-		UpdateMusicStream(background_music);
-
-		// update game logic
 		mouse = GetMousePosition();
 		if (tile_state == STATE_IDLE && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
 			int x = (mouse.x - grid_origin.x) / TILE_SIZE;
@@ -269,12 +254,11 @@ int main(void) {
 			}
 		}
 
-		// update our score popups array
-		for (int i = 0; i < MAX_SCORE_POPUPS; i++) {
+        for (int i = 0; i < MAX_SCORE_POPUPS; i++) {
 			if (score_popups[i].active) {
 				score_popups[i].lifetime -= GetFrameTime();
-				score_popups[i].position.y -= 30 * GetFrameTime();
-				score_popups[i].alpha = score_popups[i].lifetime;
+                score_popups[i].position.y -= 30 * GetFrameTime();
+                score_popups[i].alpha = score_popups[i].lifetime;
 
 				if (score_popups[i].lifetime <= 0.0f) {
 					score_popups[i].active = false;
@@ -282,35 +266,33 @@ int main(void) {
 			}
 		}
 
-		// update the score animation
-		if (score_animating) {
-			score_scale += score_scale_velocity * GetFrameTime();
-			if (score_scale <= 1.0f) {
-				score_scale = 1.0f;
-				score_animating = false;
-			}
-		}
-		
+        if (score_animating) {
+            score_scale += score_scale_velocity * GetFrameTime();
+            if (score_scale <= 1.0f) {
+                score_scale = 1.0f;
+                score_animating = false;
+            }
+        }
 
-		BeginDrawing();
-		ClearBackground(BLACK);
+        BeginDrawing();
+        ClearBackground(BLACK);
 
-		DrawTexturePro(
-			background,
-			(Rectangle) {
-			0, 0, background.width, background.height
-		},
-			(Rectangle) {
-			0, 0, GetScreenWidth(), GetScreenHeight()
-		},
-			(Vector2) {
-			0, 0
-		},
-			0.0f,
-			WHITE
-		);
+        DrawTexturePro(
+            background,
+            (Rectangle){
+                0, 0, background.width, background.height
+        },
+            (Rectangle){
+                0, 0, GetScreenWidth(), GetScreenHeight()
+        },
+            (Vector2) {
+                0, 0
+        },
+            0.0f,
+            WHITE
+        );
 
-		DrawRectangle(
+        DrawRectangle(
 			grid_origin.x,
 			grid_origin.y,
 			BOARD_SIZE* TILE_SIZE,
@@ -345,7 +327,6 @@ int main(void) {
 			}
 		}
 
-		// draw selected tile
 		if (selected_tile.x >= 0) {
 			DrawRectangleLinesEx((Rectangle) {
 				grid_origin.x + (selected_tile.x * TILE_SIZE),
@@ -354,40 +335,27 @@ int main(void) {
 			}, 2, YELLOW);
 		}
 
-		DrawTextEx(
-			score_font,
-			TextFormat("SCORE: %d", score),
-			(Vector2) {
-			20, 20
-		},
-			SCORE_FONT_SIZE * score_scale,
-			1.0f,
-			YELLOW
-		);
+        DrawTextEx(GetFontDefault(), TextFormat("Score : %d", score), (Vector2){20, 20}, 24 * score_scale, 1, WHITE);
 
-		// draw score popups
-		for (int i = 0; i < MAX_SCORE_POPUPS; i++) {
-			if (score_popups[i].active) {
-				Color c = Fade(YELLOW, score_popups[i].alpha);
-				DrawText(
-					TextFormat("+%d", score_popups[i].amount),
-					score_popups[i].position.x,
-					score_popups[i].position.y,
-					20, c);
-			}
-		}
+        for (int i = 0; i < MAX_SCORE_POPUPS; i++) {
+            if (score_popups[i].active) {
+                Color c = Fade(YELLOW, score_popups[i].alpha);
+                DrawText(
+                    TextFormat("+%d", score_popups[i].amount), score_popups[i].position.x, score_popups[i].position.y, 20, c);
+            }
+        }
 
-		EndDrawing();
-	}
+        EndDrawing();
+    }
 
-	StopMusicStream(background_music);
-	UnloadMusicStream(background_music);
-	UnloadSound(match_sound);
-	UnloadTexture(background);
-	UnloadFont(score_font);
+    StopMusicStream(background_music);
+    UnloadMusicStream(background_music);
+    UnloadSound(match_sound);
 
-	CloseAudioDevice();
+    CloseAudioDevice();
+    UnloadTexture(background);
 
-	CloseWindow();
-	return 0;
+    CloseWindow();
+    return 0;
+    
 }
